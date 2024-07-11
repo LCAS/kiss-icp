@@ -2,8 +2,8 @@
 Changelog for package kiss_icp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.1 (2024-07-11)
+------------------
 * dev-container
 * Cleanup ROS package.xml and CMakeLists.txt (`#337 <https://github.com/LCAS/kiss-icp/issues/337>`_)
   Add missing system dependencies as wel
