@@ -21,11 +21,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 cmake_minimum_required(VERSION 3.16...3.26)
-project(kiss_icp VERSION 0.4.0 LANGUAGES CXX)
+project(kiss_icp VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_BUILD_TYPE Release)
 
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/kiss_icp/)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/kiss_icp/ AND NOT IS_SYMLINK ${CMAKE_CURRENT_SOURCE_DIR})
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../cpp/kiss_icp ${CMAKE_CURRENT_BINARY_DIR}/kiss_icp)
 else()
   cmake_minimum_required(VERSION 3.18)
