@@ -87,6 +87,7 @@ OdometryServer::OdometryServer(const rclcpp::NodeOptions &options)
     // Initialize publishers
     rclcpp::QoS qos((rclcpp::SystemDefaultsQoS().keep_last(1).durability_volatile()));
     odom_publisher_ = create_publisher<nav_msgs::msg::Odometry>("kiss/odometry", qos);
+    smoothed_odom_publisher_ = create_publisher<nav_msgs::msg::Odometry>("kiss/smoothed_odometry", qos);
     if (publish_debug_clouds_) {
         frame_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>("kiss/frame", qos);
         kpoints_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>("kiss/keypoints", qos);
@@ -217,7 +218,12 @@ void OdometryServer::PublishOdometry(const Sophus::SE3d &kiss_pose,
     odom_msg.pose.covariance[21] = orientation_covariance_;
     odom_msg.pose.covariance[28] = orientation_covariance_;
     odom_msg.pose.covariance[35] = orientation_covariance_;
+
+    auto odom_msg_ptr = std::make_shared<nav_msgs::msg::Odometry>(odom_msg);
+    auto smoothed_odom = kf_.Update(odom_msg_ptr);
+
     odom_publisher_->publish(std::move(odom_msg));
+    smoothed_odom_publisher_->publish(std::move(smoothed_odom));
 }
 
 void OdometryServer::PublishClouds(const std::vector<Eigen::Vector3d> &frame,

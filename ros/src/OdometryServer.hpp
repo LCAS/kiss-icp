@@ -37,6 +37,8 @@
 #include <std_srvs/srv/empty.hpp>
 #include <string>
 
+#include "KalmanFilter.hpp"
+
 namespace kiss_icp_ros {
 
 class OdometryServer : public rclcpp::Node {
@@ -77,6 +79,7 @@ private:
 
     /// Data publishers.
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher_;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr smoothed_odom_publisher_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr frame_publisher_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr kpoints_publisher_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_publisher_;
@@ -94,6 +97,9 @@ private:
     /// Covariance diagonal
     double position_covariance_;
     double orientation_covariance_;
+
+    /// Kalman Filter
+    KalmanFilter kf_;
 };
 
 }  // namespace kiss_icp_ros
