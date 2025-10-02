@@ -1,10 +1,11 @@
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
-#include <nav_msgs/msg/odometry.hpp>
+
 #include <Eigen/Dense>
-#include <geometry_msgs/msg/quaternion.hpp>
 #include <cmath>
+#include <geometry_msgs/msg/quaternion.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 class KalmanFilter {
 public:
@@ -12,8 +13,8 @@ public:
         // state = [x, y, theta, vx, vy, omega]
         x_.setZero();
 
-        P_ = Eigen::MatrixXd::Identity(6,6) * 0.1;
-        Q_ = Eigen::MatrixXd::Identity(6,6) * 0.01;
+        P_ = Eigen::MatrixXd::Identity(6, 6) * 0.1;
+        Q_ = Eigen::MatrixXd::Identity(6, 6) * 0.01;
         R_ = Eigen::Matrix3d::Identity() * 0.05;
     }
 
@@ -27,10 +28,10 @@ public:
         if (dt <= 0.0) dt = 0.1;
         last_time_ = now;
 
-        Eigen::MatrixXd F = Eigen::MatrixXd::Identity(6,6);
-        F(0,3) = dt;
-        F(1,4) = dt;
-        F(2,5) = dt;
+        Eigen::MatrixXd F = Eigen::MatrixXd::Identity(6, 6);
+        F(0, 3) = dt;
+        F(1, 4) = dt;
+        F(2, 5) = dt;
 
         x_ = F * x_;
         P_ = F * P_ * F.transpose() + Q_;
@@ -41,18 +42,18 @@ public:
         z(1) = msg->pose.pose.position.y;
         z(2) = yawFromQuaternion(msg->pose.pose.orientation);
 
-        Eigen::MatrixXd H(3,6);
+        Eigen::MatrixXd H(3, 6);
         H.setZero();
-        H(0,0) = 1;
-        H(1,1) = 1;
-        H(2,2) = 1;
+        H(0, 0) = 1;
+        H(1, 1) = 1;
+        H(2, 2) = 1;
 
         Eigen::Vector3d y = z - H * x_;
         Eigen::Matrix3d S = H * P_ * H.transpose() + R_;
         Eigen::MatrixXd K = P_ * H.transpose() * S.inverse();
 
         x_ = x_ + K * y;
-        P_ = (Eigen::MatrixXd::Identity(6,6) - K * H) * P_;
+        P_ = (Eigen::MatrixXd::Identity(6, 6) - K * H) * P_;
 
         // ---- Fill output ----
         nav_msgs::msg::Odometry odom_out;
@@ -65,15 +66,15 @@ public:
 
         odom_out.pose.pose.orientation = quaternionFromYaw(x_(2));
 
-        for (int i=0; i<6; i++)
-            for (int j=0; j<6; j++)
-                odom_out.pose.covariance[i*6+j] = (i<3 && j<3) ? P_(i,j) : 0.0;
+        for (int i = 0; i < 6; i++)
+            for (int j = 0; j < 6; j++)
+                odom_out.pose.covariance[i * 6 + j] = (i < 3 && j < 3) ? P_(i, j) : 0.0;
 
         return odom_out;
     }
 
 private:
-    Eigen::Matrix<double,6,1> x_;
+    Eigen::Matrix<double, 6, 1> x_;
     Eigen::MatrixXd P_, Q_;
     Eigen::Matrix3d R_;
     rclcpp::Time last_time_;
@@ -81,8 +82,7 @@ private:
     // ---- Helper functions ----
     static double yawFromQuaternion(const geometry_msgs::msg::Quaternion &q) {
         // yaw (theta) from quaternion
-        return std::atan2(2.0 * (q.w * q.z + q.x * q.y),
-                          1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+        return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
     }
 
     static geometry_msgs::msg::Quaternion quaternionFromYaw(double yaw) {
