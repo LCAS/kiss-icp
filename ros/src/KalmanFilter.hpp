@@ -11,22 +11,22 @@ public:
     KalmanFilter() {
         // state = [x, y, theta, vx, vy, omega]
         x_.setZero();
-
-        P_ = Eigen::MatrixXd::Identity(6, 6) * 0.1;
-        Q_ = Eigen::MatrixXd::Identity(6, 6) * 0.01;
-        R_ = Eigen::Matrix3d::Identity() * 0.05;
+        P_ = Eigen::MatrixXd::Identity(6, 6) * 0.2;
+        Q_ = Eigen::MatrixXd::Identity(6, 6) * 0.1;
+        R_ = Eigen::Matrix3d::Identity() * 0.1;
     }
 
     nav_msgs::msg::Odometry Update(const nav_msgs::msg::Odometry::ConstSharedPtr &msg) {
         // ---- Time update ----
-        rclcpp::Time now(msg->header.stamp);  // convert from msg timestamp
+        rclcpp::Time now(msg->header.stamp);
         if (last_time_.nanoseconds() == 0) {
-            last_time_ = now;  // first message
+            last_time_ = now;
         }
         double dt = (now - last_time_).seconds();
         if (dt <= 0.0) dt = 0.1;
         last_time_ = now;
 
+        // State transition (constant velocity model)
         Eigen::MatrixXd F = Eigen::MatrixXd::Identity(6, 6);
         F(0, 3) = dt;
         F(1, 4) = dt;
@@ -35,26 +35,39 @@ public:
         x_ = F * x_;
         P_ = F * P_ * F.transpose() + Q_;
 
-        // ---- Measurement ----
+        // ---- Measurement (pose only: x, y, yaw) ----
         Eigen::Vector3d z;
         z(0) = msg->pose.pose.position.x;
         z(1) = msg->pose.pose.position.y;
         z(2) = yawFromQuaternion(msg->pose.pose.orientation);
 
-        Eigen::MatrixXd H(3, 6);
+        // H maps pose measurements into the 6-state vector
+        Eigen::Matrix<double, 3, 6> H;
         H.setZero();
         H(0, 0) = 1;
         H(1, 1) = 1;
         H(2, 2) = 1;
 
+        // normalize innovation for angle
+        auto normalizeAngle = [](double a) {
+            while (a > M_PI) a -= 2.0 * M_PI;
+            while (a <= -M_PI) a += 2.0 * M_PI;
+            return a;
+        };
+
         Eigen::Vector3d y = z - H * x_;
-        Eigen::Matrix3d S = H * P_ * H.transpose() + R_;
-        Eigen::MatrixXd K = P_ * H.transpose() * S.inverse();
+        y(2) = normalizeAngle(y(2)); // wrap yaw innovation
+
+        // measurement noise for pose (3x3)
+        Eigen::Matrix3d R_pose = R_; // reuse R_ initialized earlier
+
+        Eigen::Matrix3d S = H * P_ * H.transpose() + R_pose;
+        Eigen::Matrix<double, 6, 3> K = P_ * H.transpose() * S.inverse();
 
         x_ = x_ + K * y;
         P_ = (Eigen::MatrixXd::Identity(6, 6) - K * H) * P_;
 
-        // ---- Fill output ----
+        // ---- Prepare output odom ----
         nav_msgs::msg::Odometry odom_out;
         odom_out.header = msg->header;
         odom_out.child_frame_id = msg->child_frame_id;
@@ -62,12 +75,29 @@ public:
         odom_out.pose.pose.position.x = x_(0);
         odom_out.pose.pose.position.y = x_(1);
         odom_out.pose.pose.position.z = 0.0;
-
         odom_out.pose.pose.orientation = quaternionFromYaw(x_(2));
 
-        for (int i = 0; i < 6; i++)
-            for (int j = 0; j < 6; j++)
-                odom_out.pose.covariance[i * 6 + j] = (i < 3 && j < 3) ? P_(i, j) : 0.0;
+        // Fill pose covariance (top-left 3x3 of P_)
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                odom_out.pose.covariance[i * 6 + j] = P_(i, j);
+            }
+        }
+
+        // ---- Estimate twist from state (vx, vy, omega) ----
+        odom_out.twist.twist.linear.x = x_(3);
+        odom_out.twist.twist.linear.y = x_(4);
+        odom_out.twist.twist.linear.z = 0.0;
+        odom_out.twist.twist.angular.x = 0.0;
+        odom_out.twist.twist.angular.y = 0.0;
+        odom_out.twist.twist.angular.z = x_(5);
+
+        // Fill twist covariance from P_ submatrix [3:5,3:5] into 6x6 twist.covariance top-left
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                odom_out.twist.covariance[i * 6 + j] = P_(3 + i, 3 + j);
+            }
+        }
 
         return odom_out;
     }
