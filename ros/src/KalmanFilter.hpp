@@ -56,10 +56,10 @@ public:
         };
 
         Eigen::Vector3d y = z - H * x_;
-        y(2) = normalizeAngle(y(2)); // wrap yaw innovation
+        y(2) = normalizeAngle(y(2));  // wrap yaw innovation
 
         // measurement noise for pose (3x3)
-        Eigen::Matrix3d R_pose = R_; // reuse R_ initialized earlier
+        Eigen::Matrix3d R_pose = R_;  // reuse R_ initialized earlier
 
         Eigen::Matrix3d S = H * P_ * H.transpose() + R_pose;
         Eigen::Matrix<double, 6, 3> K = P_ * H.transpose() * S.inverse();
